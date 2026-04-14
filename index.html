@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Discord Video Bot</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #1a1b1e; --surface: #25262b; --surface2: #2c2e33;
+      --border: rgba(255,255,255,0.08); --text: #e0e0e0; --muted: #888;
+      --accent: #5865f2; --accent-hover: #4752c4;
+      --green: #57f287; --red: #ed4245; --yellow: #fee75c; --orange: #f5a623;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    header { background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 14px 24px; display: flex; align-items: center; gap: 10px; }
+    header h1 { font-size: 17px; font-weight: 700; }
+    .status-badge { margin-left: auto; padding: 5px 13px; border-radius: 20px;
+      font-size: 12px; font-weight: 600; background: var(--surface2); color: var(--muted); }
+    .status-badge.online { background: rgba(87,242,135,.15); color: var(--green); }
+    .status-badge.offline { background: rgba(237,66,69,.15); color: var(--red); }
+
+    main { max-width: 900px; margin: 0 auto; padding: 28px 20px; display: grid; gap: 20px; }
+
+    .card { background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 20px 24px; }
+    .card-title { font-size: 12px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .07em; margin-bottom: 16px; }
+
+    label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 5px; margin-top: 14px; }
+    label:first-of-type { margin-top: 0; }
+    input, select, textarea {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); padding: 10px 14px;
+      font-size: 14px; outline: none; transition: border-color .2s; }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    textarea { min-height: 64px; resize: vertical; }
+
+    /* ── Sites Grid ── */
+    .sites-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+    .site-chip {
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+      padding: 10px 6px; border-radius: 10px; border: 1.5px solid var(--border);
+      background: var(--surface2); cursor: pointer; transition: all .18s;
+      user-select: none; position: relative; }
+    .site-chip:hover { border-color: rgba(88,101,242,.5); background: rgba(88,101,242,.08); }
+    .site-chip.selected { border-color: var(--accent); background: rgba(88,101,242,.18); }
+    .site-chip .site-icon { font-size: 22px; line-height: 1; }
+    .site-chip .site-name { font-size: 11px; font-weight: 600; color: var(--muted); text-align: center; }
+    .site-chip.selected .site-name { color: #a5b4fc; }
+    .site-chip .check { position: absolute; top: 5px; right: 6px; width: 14px; height: 14px;
+      border-radius: 50%; background: var(--accent); display: none;
+      align-items: center; justify-content: center; font-size: 9px; color: #fff; }
+    .site-chip.selected .check { display: flex; }
+
+    /* URL input area */
+    .url-row { display: flex; gap: 8px; }
+    .url-row input { flex: 1; }
+    .url-row .btn { flex-shrink: 0; white-space: nowrap; }
+
+    .url-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; min-height: 0; }
+    .url-tag { display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 12px;
+      background: rgba(88,101,242,.2); border: 1px solid rgba(88,101,242,.4);
+      border-radius: 20px; font-size: 13px; max-width: 320px; }
+    .url-tag span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
+    .url-tag .rm { cursor: pointer; color: var(--muted); font-size: 15px; line-height: 1;
+      flex-shrink: 0; transition: color .15s; }
+    .url-tag .rm:hover { color: var(--red); }
+
+    .btn { display: inline-flex; align-items: center; gap: 7px; padding: 10px 18px;
+      border-radius: 8px; font-size: 14px; font-weight: 600; border: none;
+      cursor: pointer; transition: background .18s, transform .1s; }
+    .btn:active { transform: scale(.97); }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:disabled { background: #3a3d5c; color: #555; cursor: default; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 6px; }
+    .btn-ghost { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,.2); }
+    .btn-danger { background: rgba(237,66,69,.15); color: var(--red); border: 1px solid rgba(237,66,69,.3); }
+    .btn-danger:hover { background: rgba(237,66,69,.3); }
+
+    .send-row { display: flex; gap: 10px; margin-top: 18px; align-items: flex-end; }
+    .send-row > div { flex: 1; }
+
+    /* Queue */
+    .queue-list { display: grid; gap: 8px; }
+    .task-item { background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 12px 14px; display: flex; align-items: flex-start; gap: 10px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+    .dot.pending { background: var(--yellow); }
+    .dot.processing { background: var(--orange); animation: pulse 1s infinite; }
+    .dot.done { background: var(--green); }
+    .dot.error { background: var(--red); }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.35} }
+
+    .task-info { flex: 1; min-width: 0; }
+    .task-url { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .task-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .task-error { font-size: 12px; color: var(--red); margin-top: 3px; }
+    .task-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px;
+      text-transform: uppercase; letter-spacing: .04em; flex-shrink: 0; }
+    .task-badge.pending { background: rgba(254,231,92,.15); color: var(--yellow); }
+    .task-badge.processing { background: rgba(245,166,35,.15); color: var(--orange); }
+    .task-badge.done { background: rgba(87,242,135,.15); color: var(--green); }
+    .task-badge.error { background: rgba(237,66,69,.15); color: var(--red); }
+
+    .stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 20px; }
+    .stat-box { background: var(--surface2); border-radius: 8px; padding: 14px; text-align: center; }
+    .stat-num { font-size: 26px; font-weight: 700; }
+    .stat-label { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+    .empty { text-align: center; color: var(--muted); padding: 30px 0; font-size: 14px; }
+    .alert { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-top: 12px;
+      display: none; }
+    .alert.show { display: block; }
+    .alert.success { background: rgba(87,242,135,.12); color: var(--green); border: 1px solid rgba(87,242,135,.25); }
+    .alert.error { background: rgba(237,66,69,.12); color: var(--red); border: 1px solid rgba(237,66,69,.25); }
+
+    .mode-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+    .tab { padding: 7px 14px; border-radius: 7px; font-size: 13px; font-weight: 600;
+      cursor: pointer; background: var(--surface2); color: var(--muted);
+      border: 1px solid var(--border); transition: all .15s; }
+    .tab.active { background: rgba(88,101,242,.2); color: #a5b4fc; border-color: rgba(88,101,242,.5); }
+
+    #panel-url, #panel-scrape { display: none; }
+    #panel-url.active, #panel-scrape.active { display: block; }
+
+    .scrape-hint { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:22px">🎬</span>
+  <h1>Discord Video Bot</h1>
+  <span class="status-badge offline" id="statusBadge">⬤ Hors ligne</span>
+</header>
+
+<main>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat-box">
+      <div class="stat-num" id="statPending">0</div>
+      <div class="stat-label">En attente</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num" style="color:var(--green)" id="statDone">0</div>
+      <div class="stat-label">Envoyées</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num" style="color:var(--red)" id="statError">0</div>
+      <div class="stat-label">Erreurs</div>
+    </div>
+  </div>
+
+  <!-- Formulaire d'envoi -->
+  <div class="card">
+    <div class="card-title">📤 Envoyer des vidéos</div>
+
+    <!-- Sélection du site source -->
+    <label>Sites sources (sélectionne un ou plusieurs)</label>
+    <div class="sites-grid" id="sitesGrid">
+      <!-- généré par JS -->
+    </div>
+
+    <!-- Onglets mode -->
+    <div class="mode-tabs" style="margin-top:18px">
+      <div class="tab active" data-tab="url">🔗 URL directe</div>
+      <div class="tab" data-tab="scrape">🌐 Page entière</div>
+    </div>
+
+    <!-- Panel URL directe -->
+    <div id="panel-url" class="active">
+      <label>URL(s) de vidéo — colle une ou plusieurs URLs</label>
+      <div class="url-row">
+        <input type="text" id="urlInput" placeholder="https://youtube.com/watch?v=..." />
+        <button class="btn btn-ghost" onclick="addUrl()">+ Ajouter</button>
+      </div>
+      <div class="url-tags" id="urlTags"></div>
+    </div>
+
+    <!-- Panel Scrape page -->
+    <div id="panel-scrape">
+      <label>URL de la page à scanner</label>
+      <input type="text" id="scrapeUrl" placeholder="https://example.com/videos" />
+      <p class="scrape-hint">⚡ Le bot va extraire automatiquement toutes les vidéos trouvées sur cette page et les mettre en file d'attente.</p>
+    </div>
+
+    <!-- Paramètres communs -->
+    <div class="send-row">
+      <div>
+        <label>Salon Discord de destination</label>
+        <select id="channelSelect">
+          <option value="">— Chargement des salons... —</option>
+        </select>
+      </div>
+    </div>
+
+    <label>Message d'accompagnement (optionnel)</label>
+    <textarea id="msgInput" placeholder="Ex: Nouvelle vidéo depuis TikTok 🔥"></textarea>
+
+    <div style="display:flex; gap:10px; margin-top:16px; align-items:center">
+      <button class="btn btn-primary" id="sendBtn" onclick="submitSend()">
+        <span>🚀</span> Envoyer
+      </button>
+      <button class="btn btn-ghost btn-sm" onclick="clearForm()">Effacer</button>
+      <span style="font-size:12px; color:var(--muted)" id="urlCount"></span>
+    </div>
+
+    <div class="alert" id="formAlert"></div>
+  </div>
+
+  <!-- File d'attente -->
+  <div class="card">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px">
+      <div class="card-title" style="margin:0">📋 File d'attente</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="loadQueue()">↻ Actualiser</button>
+        <button class="btn btn-danger btn-sm" onclick="clearDone()">🗑 Supprimer terminées</button>
+      </div>
+    </div>
+    <div class="queue-list" id="queueList">
+      <div class="empty">Aucune tâche pour l'instant.</div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── Sites disponibles ─────────────────────────────────────────────────────
+const SITES = [
+  { id: 'youtube',   name: 'YouTube',   icon: '▶️',  placeholder: 'https://youtube.com/watch?v=...' },
+  { id: 'tiktok',    name: 'TikTok',    icon: '🎵',  placeholder: 'https://tiktok.com/@user/video/...' },
+  { id: 'twitter',   name: 'Twitter/X', icon: '🐦',  placeholder: 'https://twitter.com/user/status/...' },
+  { id: 'instagram', name: 'Instagram', icon: '📸',  placeholder: 'https://instagram.com/p/...' },
+  { id: 'twitch',    name: 'Twitch',    icon: '💜',  placeholder: 'https://twitch.tv/videos/...' },
+  { id: 'reddit',    name: 'Reddit',    icon: '🤖',  placeholder: 'https://reddit.com/r/.../comments/...' },
+  { id: 'facebook',  name: 'Facebook',  icon: '👤',  placeholder: 'https://facebook.com/watch?v=...' },
+  { id: 'dailymo',   name: 'Dailymotion',icon:'🎬', placeholder: 'https://dailymotion.com/video/...' },
+  { id: 'vimeo',     name: 'Vimeo',     icon: '🎥',  placeholder: 'https://vimeo.com/...' },
+  { id: 'bilibili',  name: 'Bilibili',  icon: '📺',  placeholder: 'https://bilibili.com/video/...' },
+  { id: 'rumble',    name: 'Rumble',    icon: '🔊',  placeholder: 'https://rumble.com/...' },
+  { id: 'other',     name: 'Autre',     icon: '🌐',  placeholder: 'https://...' },
+];
+
+let selectedSites = new Set();
+let urlList = [];
+
+// ── Génération de la grille de sites ──────────────────────────────────────
+function buildSitesGrid() {
+  const grid = document.getElementById('sitesGrid');
+  grid.innerHTML = '';
+  SITES.forEach(site => {
+    const chip = document.createElement('div');
+    chip.className = 'site-chip';
+    chip.dataset.id = site.id;
+    chip.innerHTML = `
+      <span class="check">✓</span>
+      <span class="site-icon">${site.icon}</span>
+      <span class="site-name">${site.name}</span>`;
+    chip.addEventListener('click', () => toggleSite(site.id, chip));
+    grid.appendChild(chip);
+  });
+}
+
+function toggleSite(id, chip) {
+  if (selectedSites.has(id)) {
+    selectedSites.delete(id);
+    chip.classList.remove('selected');
+  } else {
+    selectedSites.add(id);
+    chip.classList.add('selected');
+  }
+  updatePlaceholder();
+}
+
+function updatePlaceholder() {
+  if (selectedSites.size === 1) {
+    const site = SITES.find(s => s.id === [...selectedSites][0]);
+    document.getElementById('urlInput').placeholder = site?.placeholder || 'https://...';
+  } else if (selectedSites.size > 1) {
+    document.getElementById('urlInput').placeholder = 'Colle une URL correspondant aux sites sélectionnés';
+  } else {
+    document.getElementById('urlInput').placeholder = 'https://...';
+  }
+}
+
+// ── Gestion des URLs ──────────────────────────────────────────────────────
+function addUrl() {
+  const input = document.getElementById('urlInput');
+  const raw = input.value.trim();
+  if (!raw) return;
+  // support multi-ligne (collé depuis bloc-notes)
+  const urls = raw.split(/[\n\r\s]+/).filter(u => u.startsWith('http'));
+  urls.forEach(u => { if (!urlList.includes(u)) urlList.push(u); });
+  input.value = '';
+  renderUrlTags();
+}
+
+document.getElementById('urlInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); addUrl(); }
+});
+
+function removeUrl(idx) {
+  urlList.splice(idx, 1);
+  renderUrlTags();
+}
+
+function renderUrlTags() {
+  const container = document.getElementById('urlTags');
+  const count = document.getElementById('urlCount');
+  container.innerHTML = urlList.map((u, i) => `
+    <div class="url-tag">
+      <span title="${u}">${u}</span>
+      <span class="rm" onclick="removeUrl(${i})">✕</span>
+    </div>`).join('');
+  count.textContent = urlList.length > 0 ? `${urlList.length} URL${urlList.length > 1 ? 's' : ''}` : '';
+}
+
+// ── Onglets ───────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('[id^=panel-]').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(`panel-${tab.dataset.tab}`).classList.add('active');
+  });
+});
+
+// ── Envoi ─────────────────────────────────────────────────────────────────
+async function submitSend() {
+  const channelId = document.getElementById('channelSelect').value;
+  const message = document.getElementById('msgInput').value.trim();
+  const activeTab = document.querySelector('.tab.active').dataset.tab;
+
+  if (!channelId) return showAlert('Sélectionne un salon Discord.', 'error');
+
+  let urls = [];
+
+  if (activeTab === 'url') {
+    // Ajouter l'input courant s'il y a quelque chose de non validé
+    const input = document.getElementById('urlInput').value.trim();
+    if (input.startsWith('http')) { addUrl(); }
+    urls = [...urlList];
+    if (urls.length === 0) return showAlert('Ajoute au moins une URL.', 'error');
+  } else {
+    const scrapeUrl = document.getElementById('scrapeUrl').value.trim();
+    if (!scrapeUrl.startsWith('http')) return showAlert('Saisis l\'URL de la page à scanner.', 'error');
+    urls = [scrapeUrl]; // le serveur gérera le scraping
+  }
+
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span>⏳</span> Envoi...';
+
+  let ok = 0, err = 0;
+  for (const url of urls) {
+    try {
+      const res = await fetch('/api/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, channelId, message, mode: activeTab }),
+      });
+      const data = await res.json();
+      if (data.ok) ok++; else err++;
+    } catch { err++; }
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<span>🚀</span> Envoyer';
+
+  if (err === 0) {
+    showAlert(`✅ ${ok} vidéo${ok > 1 ? 's' : ''} ajoutée${ok > 1 ? 's' : ''} à la file !`, 'success');
+    clearForm();
+  } else {
+    showAlert(`⚠️ ${ok} réussite(s), ${err} erreur(s).`, 'error');
+  }
+  loadQueue();
+}
+
+function clearForm() {
+  urlList = [];
+  renderUrlTags();
+  document.getElementById('urlInput').value = '';
+  document.getElementById('scrapeUrl').value = '';
+  document.getElementById('msgInput').value = '';
+}
+
+// ── Alert ─────────────────────────────────────────────────────────────────
+function showAlert(msg, type) {
+  const el = document.getElementById('formAlert');
+  el.textContent = msg;
+  el.className = `alert ${type} show`;
+  setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+// ── Chargement des salons ─────────────────────────────────────────────────
+async function loadChannels() {
+  try {
+    const res = await fetch('/api/channels');
+    const channels = await res.json();
+    const sel = document.getElementById('channelSelect');
+    sel.innerHTML = channels.length
+      ? '<option value="">— Choisir un salon —</option>' +
+        channels.map(c => `<option value="${c.id}">${c.name}</option>`).join('')
+      : '<option value="">Aucun salon disponible</option>';
+  } catch {
+    document.getElementById('channelSelect').innerHTML = '<option value="">Erreur de chargement</option>';
+  }
+}
+
+// ── File d'attente ────────────────────────────────────────────────────────
+async function loadQueue() {
+  try {
+    const res = await fetch('/api/queue');
+    const tasks = await res.json();
+
+    const pending = tasks.filter(t => t.status === 'pending').length;
+    const done    = tasks.filter(t => t.status === 'done').length;
+    const errors  = tasks.filter(t => t.status === 'error').length;
+
+    document.getElementById('statPending').textContent = pending;
+    document.getElementById('statDone').textContent    = done;
+    document.getElementById('statError').textContent   = errors;
+
+    const list = document.getElementById('queueList');
+    if (!tasks.length) {
+      list.innerHTML = '<div class="empty">Aucune tâche pour l\'instant.</div>';
+      return;
+    }
+    list.innerHTML = tasks.map(t => `
+      <div class="task-item">
+        <span class="dot ${t.status}"></span>
+        <div class="task-info">
+          <div class="task-url">${t.url}</div>
+          <div class="task-meta">
+            Ajouté ${timeAgo(t.addedAt)}
+            ${t.finishedAt ? ' · Terminé ' + timeAgo(t.finishedAt) : ''}
+          </div>
+          ${t.error ? `<div class="task-error">❌ ${t.error}</div>` : ''}
+        </div>
+        <span class="task-badge ${t.status}">${labelStatus(t.status)}</span>
+        ${t.status === 'pending' ? `<button class="btn btn-danger btn-sm" onclick="deleteTask('${t.id}')">✕</button>` : ''}
+      </div>`).join('');
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function labelStatus(s) {
+  return { pending: 'En attente', processing: 'En cours…', done: 'Envoyé ✓', error: 'Erreur' }[s] || s;
+}
+
+function timeAgo(iso) {
+  const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
+  if (diff < 60) return `il y a ${diff}s`;
+  if (diff < 3600) return `il y a ${Math.floor(diff/60)}min`;
+  return `il y a ${Math.floor(diff/3600)}h`;
+}
+
+async function deleteTask(id) {
+  await fetch(`/api/queue/${id}`, { method: 'DELETE' });
+  loadQueue();
+}
+
+function clearDone() {
+  // juste un reload — les tâches terminées sont déjà affichées
+  // Dans un vrai projet, on ajouterait une route DELETE /api/queue/done
+  alert('Fonctionnalité à activer côté serveur (route DELETE /api/queue/done)');
+}
+
+// ── Statut bot ────────────────────────────────────────────────────────────
+async function loadStatus() {
+  try {
+    const res = await fetch('/api/status');
+    const data = await res.json();
+    const badge = document.getElementById('statusBadge');
+    if (data.online) {
+      badge.className = 'status-badge online';
+      badge.textContent = `⬤ ${data.botName}`;
+    } else {
+      badge.className = 'status-badge offline';
+      badge.textContent = '⬤ Hors ligne';
+    }
+  } catch {
+    document.getElementById('statusBadge').textContent = '⬤ Serveur inaccessible';
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+buildSitesGrid();
+loadStatus();
+loadChannels();
+loadQueue();
+setInterval(loadStatus, 10000);
+setInterval(loadQueue, 5000);
+</script>
+</body>
+</html>
